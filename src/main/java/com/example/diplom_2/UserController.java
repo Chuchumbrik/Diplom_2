@@ -1,88 +1,75 @@
 package com.example.diplom_2;
-
 import io.restassured.response.Response;
-
 import static io.restassured.RestAssured.given;
+import static org.apache.http.HttpStatus.SC_UNAUTHORIZED;
+import static org.hamcrest.Matchers.equalTo;
+import static com.example.diplom_2.Config.*;
 
 public class UserController {
-    private final static String apiCreateUser = "/api/auth/register";
-    private final static String apiLoginUser = "/api/auth/login ";
-    private final static String apiDeleteUser = "/api/auth/user";
-    private final static String apiChangeUserData = "/api/auth/user";
-
-    public static Response executeCreate(CreateUser createUser) {
-        Response response =
-                given()
-                        .header("Content-type", "application/json")
-                        .body(createUser)
-                        .when()
-                        .post(apiCreateUser);
-        return response;
+    public static Response createNewUser(CreateUser createUser) {
+        return given()
+                .header(HEADER_CONTENT_TYPE_NAME, CONTENT_TYPE)
+                .body(createUser)
+                .when()
+                .post(CREATE_USER_PATH);
     }
 
-    public static Response executeDelete(LoginUser loginUser) {
-        Response response =
-                given()
-                        .header("Content-type", "application/json")
-                        .auth().oauth2(getUserToken(loginUser))
-                        .when()
-                        .delete(apiDeleteUser);
-        return response;
+    public static Response deleteUser(LoginUser loginUser) {
+        return given()
+                .header(HEADER_CONTENT_TYPE_NAME, CONTENT_TYPE)
+                .auth().oauth2(getUserToken(loginUser))
+                .when()
+                .delete(DELETE_USER_PATH);
     }
 
-    public static Response executeDelete(String token) {
-        Response response =
-                given()
-                        .header("Content-type", "application/json")
-                        .auth().oauth2(token)
-                        .when()
-                        .delete(apiDeleteUser);
-        return response;
+    public static Response deleteUser(String token) {
+        return given()
+                .header(HEADER_CONTENT_TYPE_NAME, CONTENT_TYPE)
+                .auth().oauth2(token)
+                .when()
+                .delete(DELETE_USER_PATH);
     }
-
-//    public static Response executeDelete(LoginUser loginUser) {
-//        return executeDelete(getUserToken(loginUser));
-//    }
 
     public static String getUserToken(LoginUser loginUser) {
-        Response response = executeLogin(loginUser);
+        Response response = loginUser(loginUser);
         String accessToken = response.jsonPath().get("accessToken");
-        return accessToken.split(" ")[1]; // разбили строку на 2 значения, разделитель Пробел. Выбрали второе значение (токен)
+        return accessToken.replace("Bearer ","");
+
     }
-    public static Response executeLogin(LoginUser loginUser) {
+    public static Response loginUser(LoginUser loginUser) {
         return
                 given()
-                        .header("Content-type", "application/json")
+                        .header(HEADER_CONTENT_TYPE_NAME, CONTENT_TYPE)
                         .body(loginUser)
                         .when()
-                        .post(apiLoginUser);
+                        .post(LOGIN_USER_PATH);
     }
 
-    public static Response executeChangeUserData(LoginUser userBefore, ChangeUser changeUser, boolean useAuth) {
+    public static Response changeUserData(LoginUser userBefore, ChangeUser changeUser, boolean useAuth) {
         String token;
         Response response;
         if (useAuth) {
             token = getUserToken(userBefore);
             response = given()
-                            .header("Content-type", "application/json")
-                            .auth().oauth2(token)
-                            .body(changeUser)
-                            .when()
-                            .patch(apiChangeUserData);
+                    .header(HEADER_CONTENT_TYPE_NAME, CONTENT_TYPE)
+                    .auth().oauth2(token)
+                    .body(changeUser)
+                    .when()
+                    .patch(CHANGE_USER_PATH);
         } else {
             response = given()
-                            .header("Content-type", "application/json")
-                            .body(changeUser)
-                            .when()
-                            .patch(apiChangeUserData);
+                    .header(HEADER_CONTENT_TYPE_NAME, CONTENT_TYPE)
+                    .body(changeUser)
+                    .when()
+                    .patch(CHANGE_USER_PATH);
         }
-//        Response response =
-//                given()
-//                        .header("Content-type", "application/json")
-//                        .auth().oauth2(token)
-//                        .body(loginUser)
-//                        .when()
-//                        .patch(apiChangeUserData);
         return response;
+    }
+    public static  void checkInvalidCredential(LoginUser credential) {
+        Response response = loginUser(credential);
+        response.then().assertThat().body("success", equalTo(false))
+                .and().body("message", equalTo("email or password are incorrect"))
+                .and()
+                .statusCode(SC_UNAUTHORIZED);
     }
 }

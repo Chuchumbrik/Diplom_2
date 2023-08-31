@@ -1,108 +1,107 @@
 import com.example.diplom_2.CreateOrder;
-import com.example.diplom_2.CreateUser;
 import com.example.diplom_2.LoginUser;
+import io.qameta.allure.Description;
 import io.qameta.allure.junit4.DisplayName;
 import io.restassured.RestAssured;
 import io.restassured.response.Response;
-import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.Test;
 
-import static com.example.diplom_2.OrderController.executeMakeOrder;
+import static com.example.diplom_2.Config.*;
+import static com.example.diplom_2.OrderController.newOrder;
 import static com.example.diplom_2.UserController.*;
 import static org.apache.http.HttpStatus.*;
 import static org.hamcrest.Matchers.*;
 
 public class CreateOrderTest {
-    private static CreateUser createUser;
+
     private static String token;
     @Before
     public void setUp() {
-        RestAssured.baseURI = "https://stellarburgers.nomoreparties.site/";
+        RestAssured.baseURI = APP_URL;
     }
+
+    @Test
+    @DisplayName("Проверка создания заказа")
+    @Description("Действительный идентификатор пользователя и ингредиенты должны возвращать 200 и тело")
+    public void createValidOrderTest() {
+        createNewUser(CREATE_USER);
+        token = getUserToken(new LoginUser(CREATE_USER.getEmail(), CREATE_USER.getPassword()));
+        Response response = newOrder(CREATE_ORDER);
+        response.then().assertThat().body("name", notNullValue())
+                .and().body("order.number", notNullValue())
+                .and().body("success", equalTo(true))
+                .and().statusCode(SC_OK);
+    }
+
     @Test
     @DisplayName("Создание заказа с авторизацией и ингредиентами")
+    @Description("Заказ со всеми ингредиентами и без авторизации пользователя должны возвращать 200 и тело")
     public void successCreateOrderWithAuthAndWithIngredientsTest() {
-        createUser = new CreateUser("kishibe_rohan228@yandex.ru","pass!wor%d12345","Kishibe Rohan");
-        executeCreate(createUser);
-        token = getUserToken(new LoginUser(createUser.getEmail(), createUser.getPassword()));
-        CreateOrder createOrder = new CreateOrder(new String[]{"61c0c5a71d1f82001bdaaa6d", "61c0c5a71d1f82001bdaaa6f"});
-            Response response = executeMakeOrder(createOrder);
-            response.then().assertThat()
-                    .body("name", notNullValue())
-                    .and()
-                    .body("order.number", notNullValue())
-                    .and()
-                    .body("success", equalTo(true))
-                    .and()
-                    .statusCode(SC_OK);
+        Response response = newOrder(CREATE_ORDER);
+        response.then().assertThat().body("name", notNullValue())
+                .and().body("order.number", notNullValue())
+                .and().body("success", equalTo(true))
+                .and().statusCode(SC_OK);
     }
 
     @Test
     @DisplayName("Создание заказа без авторизации с ингредиентами")
+    @Description("Заказ со всеми ингредиентами и без авторизации пользователя должны возвращать 200 и тело")
     public void successCreateOrderWithoutAuthAndWithIngredientsTest() {
-        CreateOrder createOrder = new CreateOrder(new String[]{"61c0c5a71d1f82001bdaaa70", "61c0c5a71d1f82001bdaaa73"});
-        Response response = executeMakeOrder(createOrder);
-        response.then().assertThat()
-                .body("name", notNullValue())
-                .and()
-                .body("order.number", notNullValue())
-                .and()
-                .body("success", equalTo(true))
+        Response response = newOrder(CREATE_ORDER);
+        response.then().assertThat().body("name", notNullValue())
+                .and().body("order.number", notNullValue())
+                .and().body("success", equalTo(true))
                 .and()
                 .statusCode(SC_OK);
     }
     @Test
     @DisplayName("Создание заказа с авторизацией и без ингредиентов")
+    @Description("Недопустимые ингредиенты и действительная авторизация пользователя должны возвращать 400 и сообщение")
     public void successCreateOrderWithAuthAndWithoutIngredientsTest() {
-        createUser = new CreateUser("kishibe_rohan228@yandex.ru","pass!wor%d12345","Kishibe Rohan");
-        executeCreate(createUser);
-        token = getUserToken(new LoginUser(createUser.getEmail(), createUser.getPassword()));
+        createNewUser(CREATE_USER);
+        token = getUserToken(LOGIN_USER);
         CreateOrder createOrder = new CreateOrder(new String[]{});
-        Response response = executeMakeOrder(createOrder);
-        response.then().assertThat()
-                .body("success", equalTo(false))
-                .and()
-                .body("message", equalTo("Ingredient ids must be provided"))
+        Response response = newOrder(createOrder);
+        response.then().assertThat().body("success", equalTo(false))
+                .and().body("message", equalTo("Ingredient ids must be provided"))
                 .and()
                 .statusCode(SC_BAD_REQUEST);
     }
 
     @Test
     @DisplayName("Создание заказа без авторизации и без ингредиентов")
+    @Description("Без ингредиентов и без авторизации пользователя должно быть возвращено 400 и сообщение")
     public void successCreateOrderWithoutAuthAndWithoutIngredientsTest() {
-        CreateOrder createOrder = new CreateOrder(new String[]{});
-        Response response = executeMakeOrder(createOrder);
-        response.then().assertThat()
-                .body("success", equalTo(false))
-                .and()
-                .body("message", equalTo("Ingredient ids must be provided"))
+        Response response = newOrder(EMPTY_ORDER);
+        response.then().assertThat().body("success", equalTo(false))
+                .and().body("message", equalTo("Ingredient ids must be provided"))
                 .and()
                 .statusCode(SC_BAD_REQUEST);
     }
 
     @Test
     @DisplayName("Создание заказа с авторизацией и неверным хэшем ингредиентов")
+    @Description("Недопустимые ингредиенты и с авторизацией пользователя должны возвращать 500")
     public void successCreateOrderWithAuthAndWithWrongIngredientsTest() {
-        createUser = new CreateUser("kishibe_rohan228@yandex.ru","pass!wor%d12345","Kishibe Rohan");
-        executeCreate(createUser);
-        token = getUserToken(new LoginUser(createUser.getEmail(), createUser.getPassword()));
-        CreateOrder createOrder = new CreateOrder(new String[]{"61WRONGHASHc0c5a71d1f82001bdaaa76"});
-        Response response = executeMakeOrder(createOrder);
-        response.then().assertThat()
-                .statusCode(SC_INTERNAL_SERVER_ERROR);
+        createNewUser(CREATE_USER);
+        token = getUserToken(LOGIN_USER);
+        Response response = newOrder(INVALID_INGREDIENT_ORDER);
+        response.then().assertThat().statusCode(SC_INTERNAL_SERVER_ERROR);
     }
 
     @Test
     @DisplayName("Создание заказа без авторизации и неверным хэшем ингредиентов")
+    @Description("Недопустимые ингредиенты и без авторизации пользователя должны возвращать 500")
     public void successCreateOrderWithoutAuthAndWithWrongIngredientsTest() {
-        CreateOrder createOrder = new CreateOrder(new String[]{"61c0c5a71dASJDHWH1f82001bdaaa6c", "61wronghashwrong76"});
-        Response response = executeMakeOrder(createOrder);
-        response.then().assertThat()
-                .statusCode(SC_INTERNAL_SERVER_ERROR);
+        Response response = newOrder(INVALID_INGREDIENT_ORDER);
+        response.then().assertThat().statusCode(SC_INTERNAL_SERVER_ERROR);
     }
-    @After
-    public void deleteChanges() {
-        executeDelete(token);
+
+    @AfterClass
+    public static void cleanUp() {
+        deleteUser(token);
     }
 }
